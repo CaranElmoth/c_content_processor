@@ -1,0 +1,4 @@
+build/*
+.vscode/*
+bundle.cnt
+test_bundle/*
