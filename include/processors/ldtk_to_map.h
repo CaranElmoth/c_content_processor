@@ -7,16 +7,74 @@
 /// @brief Tile data structure
 typedef struct _tile_source
 {
+    /// @brief Index of the tile in the linear representation of the tiles grid
+    uint32_t tile_idx;
     /// @brief X position in pixels in tileset image
     uint32_t source_x;
     /// @brief Y position in pixels in tileset image
     uint32_t source_y;
 } tile_source_t;
 
-/// @brief Tilemap layer data structure
+/// @brief Collision rectangle data structure
+typedef struct _collision_rect
+{
+    /// @brief Rectangle origin x position in pixels
+    uint32_t x;
+    /// @brief Rectangle origin y position in pixels
+    uint32_t y;
+    /// @brief Rectangle width in pixels
+    uint32_t w;
+    /// @brief Rectangle height in pixels
+    uint32_t h;
+} collision_rect_t;
+
+/// @brief Entity data structure
+typedef struct _entity
+{
+    /// @brief Entity type as string
+    char *type;
+    /// @brief Entity x position in pixels
+    uint32_t x;
+    /// @brief Entity y position in pixels
+    uint32_t y;
+    /// @brief Entity width in pixels
+    uint32_t w;
+    /// @brief Entity height in pixels
+    uint32_t h;
+} entity_t;
+
+/// @brief Tilemap entities layer data structure
+typedef struct _entities_layer
+{
+    /// @brief Layer order
+    uint16_t order;
+    /// @brief Number of entities defined in this layer
+    uint32_t num_entities;
+    /// @brief Entities data array
+    entity_t* entities;
+} entities_layer_t;
+
+#define MAX_DEFINABLE_COLLISION_RECTS 4096
+
+/// @brief Tilemap collisions layer data structure
+typedef struct _collisions_layer
+{
+    /// @brief Layer order
+    uint16_t order;
+    /// @brief Number of collision rectangles defined in this layer
+    uint32_t num_rectangles;
+    /// @brief Collisions data array
+    collision_rect_t rectangles[MAX_DEFINABLE_COLLISION_RECTS];
+} collisions_layer_t;
+
+/// @brief Tilemap tiles layer data structure
 typedef struct _tiles_layer
 {
-    /// @brief Tiles data array (width x height size)
+    /// @brief Layer order
+    uint16_t order;
+    /// @brief Number of tiles defined in this layer
+    uint32_t num_tiles;
+    /// @brief Tiles data array
     tile_source_t* tiles;
 } tiles_layer_t;
 
@@ -31,21 +89,20 @@ typedef struct _tilemap_data
     uint32_t width;
     /// @brief Map height in tiles (only same size layers are supported)
     uint32_t height;
-    /// @brief Number of map layers
-    uint8_t num_layers;
+    /// @brief Number of map tile layers
+    uint8_t num_tile_layers;
+    /// @brief Tile layers data array
+    tiles_layer_t* tile_layers;
+    /// @brief Number of map collision layers
+    uint8_t num_collision_layers;
     /// @brief Layers data array
-    tiles_layer_t* layers;
+    collisions_layer_t* collision_layers;
+    /// @brief Number of map entity layers
+    uint8_t num_entity_layers;
+    /// @brief Layers data array
+    entities_layer_t* entity_layers;
 } tilemap_data_t;
 
-/// @brief Allocates memory for successive tile map data reading
-/// @param tile_map Tilemap data structure to fill with the new data pointers
-/// @param width Tilemap width in tiles
-/// @param height Tilemap height in tiles
-/// @param num_layers Tilemap number of layers
-void alloc_tilemap_layers(tilemap_data_t* tile_map,
-                          int width,
-                          int height,
-                          int num_layers);
 /// @brief Frees previously allocated tilemap data memory
 /// @param tile_map Tilemap data structure to be freed
 void free_tilemap_layers(tilemap_data_t* tile_map);
