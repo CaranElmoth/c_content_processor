@@ -1,4 +1,5 @@
-build/*
+bin/*
+obj/*
 .vscode/*
 bundle.cnt
 test_bundle/*

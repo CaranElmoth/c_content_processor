@@ -796,7 +796,7 @@ int ldtk_to_map(FILE* read_file, FILE* write_file, void* params)
                 sizeof(tile_map.tile_layers[i_layer].order),
                 1,
                 write_file);
-        // Write the number of tiles for this layer
+        // Write the number of defined tiles for this layer
         fwrite(&(tile_map.tile_layers[i_layer].num_tiles),
                 sizeof(tile_map.tile_layers[i_layer].num_tiles),
                 1,
@@ -827,7 +827,7 @@ int ldtk_to_map(FILE* read_file, FILE* write_file, void* params)
     fwrite(&(tile_map.num_collision_layers),
            sizeof(tile_map.num_collision_layers),
            1, write_file);    
-    // Now write all entity layers data: for each layer
+    // Now write all collisions layers data: for each layer
     for(int i_layer = 0; i_layer < tile_map.num_collision_layers; ++i_layer)
     {
         // Write the layer order
