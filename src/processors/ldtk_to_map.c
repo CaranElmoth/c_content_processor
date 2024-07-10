@@ -550,41 +550,115 @@ void read_entities_layer(
     cJSON *entities_element =
         cJSON_GetObjectItemCaseSensitive(layer_instance, "entityInstances");
     
-    // Alloc enough space for storing them
-    layer->num_entities = cJSON_GetArraySize(entities_element);    
-    layer->entities = malloc(sizeof(entity_t) * layer->num_entities);
-
-    layer->order = layer_order;
-
     cJSON* entity_element;
-    cJSON* px_element;
+    cJSON* tags_item;
+    cJSON* tag_item;
+    uint8_t is_decor_values[cJSON_GetArraySize(entities_element)];
     int num_entity = 0;
-    // Iterate all tiles
+    layer->num_decor_entities = 0;
+    layer->num_entities = 0;
+    // Count decor and other entities
     cJSON_ArrayForEach(entity_element, entities_element)
     {
-        // Fetch the entity position and size in pixels
-        px_element = cJSON_GetObjectItemCaseSensitive(entity_element, "px");
-        layer->entities[num_entity].x = 
-            (uint32_t)cJSON_GetNumberValue(cJSON_GetArrayItem(px_element, 0));
-        layer->entities[num_entity].y =
-            (uint32_t)cJSON_GetNumberValue(cJSON_GetArrayItem(px_element, 1));
-        layer->entities[num_entity].w =
-            (uint32_t)cJSON_GetNumberValue(
-                cJSON_GetObjectItemCaseSensitive(entity_element, "width")
-            );
-        layer->entities[num_entity].h =
-            (uint32_t)cJSON_GetNumberValue(
-                cJSON_GetObjectItemCaseSensitive(entity_element, "height")
-            );
+        // Fetch the entity tags
+        tags_item = cJSON_GetObjectItemCaseSensitive(entity_element, "__tags");
+        is_decor_values[num_entity] = 0;
+        cJSON_ArrayForEach(tag_item, tags_item)
+        {
+            if(strncmp(cJSON_GetStringValue(tag_item), "decor", strlen("decor")) 
+                == 0)
+            {
+                is_decor_values[num_entity] = 1;
+            }
+        }
 
-        // Copy the entity type string
-        char *entity_type = cJSON_GetStringValue(
-            cJSON_GetObjectItemCaseSensitive(entity_element,"__identifier")
-            );
-        size_t type_len = strlen(entity_type);           
-        layer->entities[num_entity].type = malloc(type_len + 1);
-        strncpy(layer->entities[num_entity].type, entity_type, type_len);
-        layer->entities[num_entity].type[type_len] = '\0';
+        if(is_decor_values[num_entity])
+            ++layer->num_decor_entities;
+        else
+            ++layer->num_entities;
+
+        ++num_entity;
+    }
+
+    // Alloc enough space for storing them
+    layer->entities = malloc(sizeof(entity_t) * layer->num_entities);
+    layer->decor_entities = 
+        malloc(sizeof(decor_entity_t) * layer->num_decor_entities);
+    layer->order = layer_order;
+
+    cJSON* px_element;
+    cJSON* tile_element;
+    num_entity = 0;
+    int decor_entity_idx = 0;
+    int other_entity_idx = 0;
+    // Iterate all entities
+    cJSON_ArrayForEach(entity_element, entities_element)
+    {
+        if(is_decor_values[num_entity])
+        {
+            // Fetch the entity position and size in pixels
+            px_element = cJSON_GetObjectItemCaseSensitive(entity_element, "px");
+            layer->decor_entities[decor_entity_idx].x = 
+                (uint32_t)cJSON_GetNumberValue(
+                    cJSON_GetArrayItem(px_element, 0));
+            layer->decor_entities[decor_entity_idx].y =
+                (uint32_t)cJSON_GetNumberValue(
+                    cJSON_GetArrayItem(px_element, 1));
+            layer->decor_entities[decor_entity_idx].w =
+                (uint32_t)cJSON_GetNumberValue(
+                    cJSON_GetObjectItemCaseSensitive(entity_element, "width")
+                );
+            layer->decor_entities[decor_entity_idx].h =
+                (uint32_t)cJSON_GetNumberValue(
+                    cJSON_GetObjectItemCaseSensitive(entity_element, "height")
+                );
+
+            tile_element =
+                cJSON_GetObjectItemCaseSensitive(entity_element, "__tile");
+            layer->decor_entities[decor_entity_idx].source_x =
+                (uint32_t)cJSON_GetNumberValue(
+                    cJSON_GetObjectItemCaseSensitive(tile_element, "x")
+                );
+            layer->decor_entities[decor_entity_idx].source_y =
+                (uint32_t)cJSON_GetNumberValue(
+                    cJSON_GetObjectItemCaseSensitive(tile_element, "y")
+                );
+
+            ++decor_entity_idx;
+        }
+        else
+        {
+            // Fetch the entity position and size in pixels
+            px_element = cJSON_GetObjectItemCaseSensitive(entity_element, "px");
+            layer->entities[other_entity_idx].x = 
+                (uint32_t)cJSON_GetNumberValue(
+                    cJSON_GetArrayItem(px_element, 0));
+            layer->entities[other_entity_idx].y =
+                (uint32_t)cJSON_GetNumberValue(
+                    cJSON_GetArrayItem(px_element, 1));
+            layer->entities[other_entity_idx].w =
+                (uint32_t)cJSON_GetNumberValue(
+                    cJSON_GetObjectItemCaseSensitive(entity_element, "width")
+                );
+            layer->entities[other_entity_idx].h =
+                (uint32_t)cJSON_GetNumberValue(
+                    cJSON_GetObjectItemCaseSensitive(entity_element, "height")
+                );
+
+            // Copy the entity type string
+            char *entity_type = cJSON_GetStringValue(
+                cJSON_GetObjectItemCaseSensitive(entity_element,"__identifier")
+                );
+            size_t type_len = strlen(entity_type);           
+            layer->entities[other_entity_idx].type = malloc(type_len + 1);
+            strncpy(
+                layer->entities[other_entity_idx].type,
+                entity_type,
+                type_len);
+            layer->entities[other_entity_idx].type[type_len] = '\0';
+
+            ++other_entity_idx;
+        }
 
         ++num_entity;
     }
@@ -871,43 +945,85 @@ int ldtk_to_map(FILE* read_file, FILE* write_file, void* params)
     // Now write all entity layers data: for each layer
     for(int i_layer = 0; i_layer < tile_map.num_entity_layers; ++i_layer)
     {
+        entities_layer_t *layer = &(tile_map.entity_layers[i_layer]);
+
         // Write the layer order
-        fwrite(&(tile_map.entity_layers[i_layer].order),
-                sizeof(tile_map.entity_layers[i_layer].order),
+        fwrite(&(layer->order), sizeof(layer->order), 1, write_file);
+
+        // Write the number of decor entities for this layer
+        fwrite(&(layer->num_decor_entities),
+                sizeof(layer->num_decor_entities),
                 1,
                 write_file);
+        // and for every decor entity
+        for(int i_entity = 0;
+            i_entity < layer->num_decor_entities;
+            ++i_entity)
+        {
+            // Write the entity source position
+            fwrite(
+                &(layer->decor_entities[i_entity].source_x),
+                sizeof(layer->decor_entities[i_entity].source_x),
+                1,
+                write_file);
+            fwrite(
+                &(layer->decor_entities[i_entity].source_y),
+                sizeof(layer->decor_entities[i_entity].source_y),
+                1,
+                write_file);
+
+            // Write the entity position and size
+            fwrite(
+                &(layer->decor_entities[i_entity].x),
+                sizeof(layer->decor_entities[i_entity].x),
+                1,
+                write_file);
+            fwrite(&(layer->decor_entities[i_entity].y),
+                   sizeof(layer->decor_entities[i_entity].y),
+                   1,
+                   write_file);
+            fwrite(&(layer->decor_entities[i_entity].w),
+                   sizeof(layer->decor_entities[i_entity].w),
+                   1,
+                   write_file);
+            fwrite(&(layer->decor_entities[i_entity].h),
+                   sizeof(layer->decor_entities[i_entity].h),
+                   1,
+                   write_file);
+        }
+
         // Write the number of entities for this layer
-        fwrite(&(tile_map.entity_layers[i_layer].num_entities),
-                sizeof(tile_map.entity_layers[i_layer].num_entities),
+        fwrite(&(layer->num_entities),
+                sizeof(layer->num_entities),
                 1,
                 write_file);
         // and for every entity
         for(int i_entity = 0;
-            i_entity < tile_map.entity_layers[i_layer].num_entities;
+            i_entity < layer->num_entities;
             ++i_entity)
         {
             // Write the entity type
             size_t typeLength = 
-                strlen(tile_map.entity_layers[i_layer].entities[i_entity].type);
+                strlen(layer->entities[i_entity].type);
             fwrite(&typeLength, sizeof(typeLength), 1, write_file);
-            fwrite(tile_map.entity_layers[i_layer].entities[i_entity].type,
+            fwrite(layer->entities[i_entity].type,
                 1, typeLength, write_file);
 
             // Write the entity position and size
-            fwrite(&(tile_map.entity_layers[i_layer].entities[i_entity].x),
-                   sizeof(tile_map.entity_layers[i_layer].entities[i_entity].x),
+            fwrite(&(layer->entities[i_entity].x),
+                   sizeof(layer->entities[i_entity].x),
                    1,
                    write_file);
-            fwrite(&(tile_map.entity_layers[i_layer].entities[i_entity].y),
-                   sizeof(tile_map.entity_layers[i_layer].entities[i_entity].y),
+            fwrite(&(layer->entities[i_entity].y),
+                   sizeof(layer->entities[i_entity].y),
                    1,
                    write_file);
-            fwrite(&(tile_map.entity_layers[i_layer].entities[i_entity].w),
-                   sizeof(tile_map.entity_layers[i_layer].entities[i_entity].w),
+            fwrite(&(layer->entities[i_entity].w),
+                   sizeof(layer->entities[i_entity].w),
                    1,
                    write_file);
-            fwrite(&(tile_map.entity_layers[i_layer].entities[i_entity].h),
-                   sizeof(tile_map.entity_layers[i_layer].entities[i_entity].h),
+            fwrite(&(layer->entities[i_entity].h),
+                   sizeof(layer->entities[i_entity].h),
                    1,
                    write_file);
         }
@@ -948,6 +1064,7 @@ void free_tilemap_layers(tilemap_data_t* tile_map)
         }
 
         free(tile_map->entity_layers[i_layer].entities);
+        free(tile_map->entity_layers[i_layer].decor_entities);
     }
 
     // Free the entity layers array

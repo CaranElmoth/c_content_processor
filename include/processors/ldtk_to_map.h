@@ -43,11 +43,32 @@ typedef struct _entity
     uint32_t h;
 } entity_t;
 
+/// @brief Entity data structure
+typedef struct _decor_entity
+{
+    /// @brief Decor x source position
+    uint32_t source_x;
+    /// @brief Decor y source position
+    uint32_t source_y;
+    /// @brief Entity x position in pixels
+    uint32_t x;
+    /// @brief Entity y position in pixels
+    uint32_t y;
+    /// @brief Entity width in pixels
+    uint32_t w;
+    /// @brief Entity height in pixels
+    uint32_t h;
+} decor_entity_t;
+
 /// @brief Tilemap entities layer data structure
 typedef struct _entities_layer
 {
     /// @brief Layer order
     uint16_t order;
+    /// @brief Number of entities defined in this layer
+    uint32_t num_decor_entities;
+    /// @brief Entities data array
+    decor_entity_t* decor_entities;
     /// @brief Number of entities defined in this layer
     uint32_t num_entities;
     /// @brief Entities data array
