@@ -28,6 +28,33 @@ typedef struct _collision_rect
     uint32_t h;
 } collision_rect_t;
 
+typedef enum
+{
+    ENTITY_DATA_INT,
+    ENTITY_DATA_FLOAT,
+    ENTITY_DATA_STRING,
+    ENTITY_DATA_ENTITY,
+    ENTITY_DATA_UNKNOWN
+} entity_data_type_t;
+
+typedef struct _entity_data
+{
+    /// @brief Data type as enum
+    entity_data_type_t type;
+    /// @brief Data name as string
+    char *name;
+    /// @brief String data
+    char *string_data;
+    /// @brief Integer data
+    int32_t int_data;
+    /// @brief Float data
+    float float_data;
+    /// @brief Referenced entity number
+    uint32_t entity_number;
+    /// @brief Referenced entity type
+    uint8_t entity_is_decor;
+} entity_data_t;
+
 /// @brief Entity data structure
 typedef struct _entity
 {
@@ -41,6 +68,10 @@ typedef struct _entity
     uint32_t w;
     /// @brief Entity height in pixels
     uint32_t h;
+    /// @brief Number of extra data elements
+    uint32_t num_data;
+    /// @brief Array of extra data elements
+    entity_data_t *data;
 } entity_t;
 
 /// @brief Entity data structure

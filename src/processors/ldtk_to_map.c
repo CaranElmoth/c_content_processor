@@ -540,6 +540,162 @@ scan_restart:
     }
 }
 
+void read_decor_entity(cJSON* entity_element, decor_entity_t *entity)
+{
+    // Fetch the entity position and size in pixels
+    cJSON* px_element = cJSON_GetObjectItemCaseSensitive(entity_element, "px");
+    entity->x = (uint32_t)cJSON_GetNumberValue(
+        cJSON_GetArrayItem(px_element, 0));
+    entity->y = (uint32_t)cJSON_GetNumberValue(
+        cJSON_GetArrayItem(px_element, 1));
+    entity->w = (uint32_t)cJSON_GetNumberValue(
+        cJSON_GetObjectItemCaseSensitive(entity_element, "width"));
+    entity->h = (uint32_t)cJSON_GetNumberValue(
+        cJSON_GetObjectItemCaseSensitive(entity_element, "height"));
+
+    cJSON* tile_element =
+        cJSON_GetObjectItemCaseSensitive(entity_element, "__tile");
+    entity->source_x = (uint32_t)cJSON_GetNumberValue(
+        cJSON_GetObjectItemCaseSensitive(tile_element, "x"));
+    entity->source_y = (uint32_t)cJSON_GetNumberValue(
+        cJSON_GetObjectItemCaseSensitive(tile_element, "y"));
+}
+
+void read_other_entity_data(
+    cJSON *extra_data_element,
+    entity_data_t *data,
+    int num_entities,
+    uint8_t *is_decor_values,
+    char **entity_iids,
+    uint32_t *entity_to_decor_idx,
+    uint32_t *entity_to_other_idx
+)
+{
+    // Copy the data name
+    char *data_name = cJSON_GetStringValue(
+        cJSON_GetObjectItemCaseSensitive(
+            extra_data_element,
+            "__identifier")
+        );
+    size_t name_len = strlen(data_name);           
+    data->name = malloc(name_len + 1);
+    strncpy(data->name, data_name, name_len);
+    data->name[name_len] = '\0';
+
+    // Fetch the data type
+    char *data_type = cJSON_GetStringValue(
+        cJSON_GetObjectItemCaseSensitive(
+            extra_data_element,
+            "__type")
+        );
+
+    data->type = ENTITY_DATA_UNKNOWN;
+    data->string_data = NULL;
+    if (strncmp(data_type, "Int", 10) == 0)
+        data->type = ENTITY_DATA_INT;
+    else if (strncmp(data_type, "Float", 10) == 0)
+        data->type = ENTITY_DATA_FLOAT;
+    else if (strncmp(data_type, "String", 10) == 0)
+        data->type = ENTITY_DATA_STRING;
+    else if (strncmp(data_type, "EntityRef", 10) == 0)
+        data->type = ENTITY_DATA_ENTITY;
+
+    // Fetch the data value
+    cJSON* data_value_element =
+        cJSON_GetObjectItemCaseSensitive(extra_data_element, "__value");
+    switch(data->type)
+    {
+        case ENTITY_DATA_INT:
+            data->int_data = (int32_t)cJSON_GetNumberValue(data_value_element);
+        break;
+        case ENTITY_DATA_FLOAT:
+            data->float_data = (float)cJSON_GetNumberValue(data_value_element);
+        break;
+        case ENTITY_DATA_STRING:
+            char *data_value = cJSON_GetStringValue(data_value_element);
+            size_t value_len = strlen(data_value);           
+            data->string_data = malloc(value_len + 1);
+            strncpy(data->string_data, data_value, value_len);
+            data->string_data[value_len] = '\0';
+        break;
+        case ENTITY_DATA_ENTITY:
+            char *entity_iid = cJSON_GetStringValue(
+                cJSON_GetObjectItemCaseSensitive(
+                    data_value_element, 
+                    "entityIid")
+            );
+
+            for (int i_entity = 0; i_entity < num_entities; ++i_entity)
+            {
+                if (strncmp(entity_iid, entity_iids[i_entity], 40) == 0)
+                {
+                    data->entity_is_decor = is_decor_values[i_entity];
+                    if (data->entity_is_decor)
+                        data->entity_number = entity_to_decor_idx[i_entity];
+                    else
+                        data->entity_number = entity_to_other_idx[i_entity];
+                }
+            }
+        break;
+    }
+}
+
+void read_other_entity(
+    cJSON* entity_element,
+    entity_t *entity,
+    int num_entities,
+    uint8_t *is_decor_values,
+    char **entity_iids,
+    uint32_t *entity_to_decor_idx,
+    uint32_t *entity_to_other_idx
+)
+{
+    // Fetch the entity position and size in pixels
+    cJSON *px_element = cJSON_GetObjectItemCaseSensitive(entity_element, "px");
+    entity->x = (uint32_t)cJSON_GetNumberValue(
+        cJSON_GetArrayItem(px_element, 0));
+    entity->y = (uint32_t)cJSON_GetNumberValue(
+        cJSON_GetArrayItem(px_element, 1));
+    entity->w = (uint32_t)cJSON_GetNumberValue(
+        cJSON_GetObjectItemCaseSensitive(entity_element, "width"));
+    entity->h = (uint32_t)cJSON_GetNumberValue(
+        cJSON_GetObjectItemCaseSensitive(entity_element, "height"));
+
+    // Copy the entity type string
+    char *entity_type = cJSON_GetStringValue(
+        cJSON_GetObjectItemCaseSensitive(entity_element,"__identifier"));
+    size_t type_len = strlen(entity_type);           
+    entity->type = malloc(type_len + 1);
+    strncpy(entity->type, entity_type, type_len);
+    entity->type[type_len] = '\0';
+
+    // Fetch entity extra data
+    cJSON* extra_data_array_element = cJSON_GetObjectItemCaseSensitive(
+        entity_element,
+        "fieldInstances");
+    entity->num_data = cJSON_GetArraySize(extra_data_array_element);
+    if (entity->num_data > 0)
+    {
+        entity->data = malloc(sizeof(entity_data_t) * entity->num_data);
+        int data_idx = 0;
+        cJSON* extra_data_element;
+        cJSON_ArrayForEach(extra_data_element, extra_data_array_element)
+        {
+            read_other_entity_data(
+                extra_data_element,
+                &(entity->data[data_idx]),
+                num_entities,
+                is_decor_values,
+                entity_iids,
+                entity_to_decor_idx,
+                entity_to_other_idx);
+            ++data_idx;
+        }
+    }
+    else
+        entity->data = NULL;
+}
+
 void read_entities_layer(
     entities_layer_t *layer,
     cJSON *layer_instance,
@@ -553,11 +709,16 @@ void read_entities_layer(
     cJSON* entity_element;
     cJSON* tags_item;
     cJSON* tag_item;
-    uint8_t is_decor_values[cJSON_GetArraySize(entities_element)];
+    cJSON* iid_item;
+    int num_entities = cJSON_GetArraySize(entities_element);
+    uint8_t is_decor_values[num_entities];
+    uint32_t entity_to_decor_idx[num_entities];
+    uint32_t entity_to_other_idx[num_entities];
+    char* entity_iids[num_entities];
     int num_entity = 0;
     layer->num_decor_entities = 0;
     layer->num_entities = 0;
-    // Count decor and other entities
+    // Count decor and other entities and fetch iids
     cJSON_ArrayForEach(entity_element, entities_element)
     {
         // Fetch the entity tags
@@ -573,9 +734,19 @@ void read_entities_layer(
         }
 
         if(is_decor_values[num_entity])
+        {
+            entity_to_decor_idx[num_entity] = layer->num_decor_entities;
             ++layer->num_decor_entities;
+        }
         else
+        {
+            entity_to_other_idx[num_entity] = layer->num_entities;
             ++layer->num_entities;
+        }
+
+        // Fetch the entity iid
+        iid_item = cJSON_GetObjectItemCaseSensitive(entity_element, "iid");
+        entity_iids[num_entity] = cJSON_GetStringValue(iid_item);
 
         ++num_entity;
     }
@@ -586,8 +757,6 @@ void read_entities_layer(
         malloc(sizeof(decor_entity_t) * layer->num_decor_entities);
     layer->order = layer_order;
 
-    cJSON* px_element;
-    cJSON* tile_element;
     num_entity = 0;
     int decor_entity_idx = 0;
     int other_entity_idx = 0;
@@ -596,67 +765,23 @@ void read_entities_layer(
     {
         if(is_decor_values[num_entity])
         {
-            // Fetch the entity position and size in pixels
-            px_element = cJSON_GetObjectItemCaseSensitive(entity_element, "px");
-            layer->decor_entities[decor_entity_idx].x = 
-                (uint32_t)cJSON_GetNumberValue(
-                    cJSON_GetArrayItem(px_element, 0));
-            layer->decor_entities[decor_entity_idx].y =
-                (uint32_t)cJSON_GetNumberValue(
-                    cJSON_GetArrayItem(px_element, 1));
-            layer->decor_entities[decor_entity_idx].w =
-                (uint32_t)cJSON_GetNumberValue(
-                    cJSON_GetObjectItemCaseSensitive(entity_element, "width")
-                );
-            layer->decor_entities[decor_entity_idx].h =
-                (uint32_t)cJSON_GetNumberValue(
-                    cJSON_GetObjectItemCaseSensitive(entity_element, "height")
-                );
-
-            tile_element =
-                cJSON_GetObjectItemCaseSensitive(entity_element, "__tile");
-            layer->decor_entities[decor_entity_idx].source_x =
-                (uint32_t)cJSON_GetNumberValue(
-                    cJSON_GetObjectItemCaseSensitive(tile_element, "x")
-                );
-            layer->decor_entities[decor_entity_idx].source_y =
-                (uint32_t)cJSON_GetNumberValue(
-                    cJSON_GetObjectItemCaseSensitive(tile_element, "y")
-                );
-
+            read_decor_entity(
+                entity_element,
+                &(layer->decor_entities[decor_entity_idx])
+            );
             ++decor_entity_idx;
         }
         else
         {
-            // Fetch the entity position and size in pixels
-            px_element = cJSON_GetObjectItemCaseSensitive(entity_element, "px");
-            layer->entities[other_entity_idx].x = 
-                (uint32_t)cJSON_GetNumberValue(
-                    cJSON_GetArrayItem(px_element, 0));
-            layer->entities[other_entity_idx].y =
-                (uint32_t)cJSON_GetNumberValue(
-                    cJSON_GetArrayItem(px_element, 1));
-            layer->entities[other_entity_idx].w =
-                (uint32_t)cJSON_GetNumberValue(
-                    cJSON_GetObjectItemCaseSensitive(entity_element, "width")
-                );
-            layer->entities[other_entity_idx].h =
-                (uint32_t)cJSON_GetNumberValue(
-                    cJSON_GetObjectItemCaseSensitive(entity_element, "height")
-                );
-
-            // Copy the entity type string
-            char *entity_type = cJSON_GetStringValue(
-                cJSON_GetObjectItemCaseSensitive(entity_element,"__identifier")
-                );
-            size_t type_len = strlen(entity_type);           
-            layer->entities[other_entity_idx].type = malloc(type_len + 1);
-            strncpy(
-                layer->entities[other_entity_idx].type,
-                entity_type,
-                type_len);
-            layer->entities[other_entity_idx].type[type_len] = '\0';
-
+            read_other_entity(
+                entity_element,
+                &(layer->entities[other_entity_idx]),
+                num_entities,
+                is_decor_values,
+                entity_iids,
+                entity_to_decor_idx,
+                entity_to_other_idx
+            );
             ++other_entity_idx;
         }
 
@@ -1026,6 +1151,70 @@ int ldtk_to_map(FILE* read_file, FILE* write_file, void* params)
                    sizeof(layer->entities[i_entity].h),
                    1,
                    write_file);
+
+            // Write the entity extra data if present
+            fwrite(&(layer->entities[i_entity].num_data),
+                   sizeof(layer->entities[i_entity].num_data),
+                   1,
+                   write_file);
+
+            for(int i_data = 0;
+                i_data < layer->entities[i_entity].num_data;
+                ++i_data)
+            {
+                // Write the data name
+                size_t name_length = 
+                    strlen(layer->entities[i_entity].data[i_data].name);
+                fwrite(&name_length, sizeof(name_length), 1, write_file);
+                fwrite(layer->entities[i_entity].data[i_data].name,
+                    1, name_length, write_file);
+                
+                // Write the data type
+                fwrite(&(layer->entities[i_entity].data[i_data].type),
+                    sizeof(layer->entities[i_entity].data[i_data].type),
+                    1,
+                    write_file);
+
+                // Write the data value if known
+                switch(layer->entities[i_entity].data[i_data].type)
+                {
+                    case ENTITY_DATA_INT:
+                    fwrite(&(layer->entities[i_entity].data[i_data].int_data),
+                        sizeof(layer->entities[i_entity].data[i_data].int_data),
+                        1,
+                        write_file);
+                    break;
+                    case ENTITY_DATA_FLOAT:
+                    fwrite(&(layer->entities[i_entity].data[i_data].float_data),
+                        sizeof(
+                            layer->entities[i_entity].data[i_data].float_data),
+                        1,
+                        write_file);
+                    break;
+                    case ENTITY_DATA_STRING:
+                    size_t data_length = 
+                        strlen(
+                            layer->entities[i_entity].data[i_data].string_data);
+                    fwrite(&data_length, sizeof(data_length), 1, write_file);
+                    fwrite(layer->entities[i_entity].data[i_data].string_data,
+                        1, data_length, write_file);
+                    break;
+                    case ENTITY_DATA_ENTITY:
+                    fwrite(
+                        &(layer->entities[i_entity].data[i_data].entity_is_decor),
+                        sizeof(
+                            layer->entities[i_entity].data[i_data].entity_is_decor),
+                        1,
+                        write_file);
+                    fwrite(
+                        &(layer->entities[i_entity].data[i_data].entity_number),
+                        sizeof(
+                            layer->entities[i_entity].data[i_data].entity_number),
+                        1,
+                        write_file);
+                    break;
+                }
+            }
         }
     }
 
@@ -1036,6 +1225,34 @@ int ldtk_to_map(FILE* read_file, FILE* write_file, void* params)
     free_tilemap_layers(&tile_map);
 
     return 0;
+}
+
+void free_tilemap_entity(entity_t *entity)
+{
+    if (entity->num_data > 0)
+    {
+        for (int i_data = 0; i_data < entity->num_data; ++i_data)
+        {
+            if (entity->data[i_data].string_data != NULL)
+                free(entity->data[i_data].string_data);
+            free(entity->data[i_data].name);
+        }
+
+        free(entity->data);
+    }
+
+    free(entity->type);
+}
+
+void free_tilemap_entities_layer(entities_layer_t *layer)
+{
+    for(int i_entity = 0; i_entity < layer->num_entities; ++i_entity)
+    {
+        free_tilemap_entity(&(layer->entities[i_entity]));
+    }
+
+    free(layer->entities);
+    free(layer->decor_entities);
 }
 
 void free_tilemap_layers(tilemap_data_t* tile_map)
@@ -1055,17 +1272,7 @@ void free_tilemap_layers(tilemap_data_t* tile_map)
 
     // Free all entities data for every layer
     for(int i_layer = 0; i_layer < tile_map->num_entity_layers; ++i_layer)
-    {
-        for(int i_entity = 0;
-            i_entity < tile_map->entity_layers[i_layer].num_entities;
-            ++i_entity)
-        {
-            free(tile_map->entity_layers[i_layer].entities[i_entity].type);
-        }
-
-        free(tile_map->entity_layers[i_layer].entities);
-        free(tile_map->entity_layers[i_layer].decor_entities);
-    }
+        free_tilemap_entities_layer(&(tile_map->entity_layers[i_layer]));
 
     // Free the entity layers array
     tile_map->num_entity_layers = 0;    
