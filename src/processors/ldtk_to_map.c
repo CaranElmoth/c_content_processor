@@ -613,10 +613,18 @@ void read_other_entity_data(
         break;
         case ENTITY_DATA_STRING:
             char *data_value = cJSON_GetStringValue(data_value_element);
-            size_t value_len = strlen(data_value);           
-            data->string_data = malloc(value_len + 1);
-            strncpy(data->string_data, data_value, value_len);
-            data->string_data[value_len] = '\0';
+            if (data_value == NULL)
+            {
+                data->string_data = malloc(1);
+                data->string_data[0] = '\0';
+            }
+            else
+            {
+                size_t value_len = strlen(data_value);           
+                data->string_data = malloc(value_len + 1);
+                strncpy(data->string_data, data_value, value_len);
+                data->string_data[value_len] = '\0';
+            }
         break;
         case ENTITY_DATA_ENTITY:
             char *entity_iid = cJSON_GetStringValue(
