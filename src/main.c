@@ -11,6 +11,7 @@
 #include "OSP_content.h"
 #include "processors/png_to_png.h"
 #include "processors/ldtk_to_map.h"
+#include "processors/fst_to_fst.h"
 
 // Some constants for path management
 const uint32_t MAX_PATH = 4096;
@@ -39,7 +40,7 @@ typedef struct _supported_processor
 } supported_processor_t;
 
 // Currently supported processors table
-const int NUM_PROCESSORS = 2;
+const int NUM_PROCESSORS = 3;
 supported_processor_t supported_processors[] =
 {
     {
@@ -51,6 +52,11 @@ supported_processor_t supported_processors[] =
         .extension = "ldtk",
         .processor = &ldtk_to_map,
         .outputType = OSP_CNT_TYPE_MAP
+    },
+    {
+        .extension = "fst",
+        .processor = &fst_to_fst,
+        .outputType = OSP_CNT_TYPE_FST
     }
 };
 

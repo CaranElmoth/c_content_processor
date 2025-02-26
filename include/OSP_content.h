@@ -7,6 +7,8 @@
 const uint8_t OSP_CNT_TYPE_PNG = 0;
 /// @brief Constant representing the content type for tilemaps
 const uint8_t OSP_CNT_TYPE_MAP = 1;
+/// @brief Constant representing the content type for framesets
+const uint8_t OSP_CNT_TYPE_FST = 2;
 /// @brief Constant representing the maximum number of definable content types
 const uint8_t OSP_CNT_MAX_TYPES = 255;
 

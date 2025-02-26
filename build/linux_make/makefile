@@ -10,7 +10,7 @@ includes := $(wildcard $(join $(inc_dir), /*.h) $(join $(inc_dir), /processors/*
 
 vpath %.c $(src_dir)
 
-SRCS = main.c cJSON.c processors/ldtk_to_map.c processors/png_to_png.c
+SRCS = main.c cJSON.c dynarray.c processors/ldtk_to_map.c processors/png_to_png.c processors/fst_to_fst.c
 OBJS = $(SRCS:.c=.o)
 EXE  = c_content_processor
 
